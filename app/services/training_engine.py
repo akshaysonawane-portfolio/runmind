@@ -46,7 +46,7 @@ def get_training_decision(
         db.query(RunDB)
         .filter(
             RunDB.runner_id == runner_id,
-            RunDB.source == "strava"
+            # RunDB.source == "strava"
         )
         .order_by(RunDB.date.desc())
         .limit(5)

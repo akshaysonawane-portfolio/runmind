@@ -98,17 +98,68 @@ def analyze_race_goal(
         )
 
     # Developing race readiness
+# Developing race readiness
     if (
         longest_recent_run_km is not None
         and longest_recent_run_km > 0
         and race_distance_km > 0
-        and longest_recent_run_km < race_distance_km * 0.75
     ):
-        result["readiness"] = "developing"
-        result["readiness_reason"] = (
-            "Training has started, but the longest recent run "
-            "is still below 75% of the race distance."
+        long_run_ratio = longest_recent_run_km / race_distance_km
+
+        if long_run_ratio < 0.75:
+            result["readiness"] = "developing"
+
+            if average_weekly_mileage is not None and average_weekly_mileage < 15:
+                result["readiness_reason"] = (
+                    "Training has started, but both long-run endurance "
+                    "and weekly training volume are still developing."
+                )
+            else:
+                result["readiness_reason"] = (
+                    "Training has started, but the longest recent run "
+                    "is still below 75% of the race distance."
+                )
+    # On-track race readiness
+    if (
+        average_weekly_mileage is not None
+        and average_weekly_mileage >= 15
+        and longest_recent_run_km is not None
+        and race_distance_km > 0
+    ):
+        long_run_ratio = longest_recent_run_km / race_distance_km
+
+        pace_is_reasonable = (
+            recent_average_pace is not None
+            and recent_average_pace <= target_pace + 0.30
         )
+
+        if long_run_ratio >= 0.50 and pace_is_reasonable:
+            result["readiness"] = "on_track"
+            result["readiness_reason"] = (
+                "Training volume and long-run endurance are developing "
+                "well enough to support the current race goal."
+            )
+
+# Strong race readiness
+    if (
+        average_weekly_mileage is not None
+        and average_weekly_mileage >= 20
+        and longest_recent_run_km is not None
+        and race_distance_km > 0
+    ):
+        long_run_ratio = longest_recent_run_km / race_distance_km
+
+        pace_is_strong = (
+            recent_average_pace is not None
+            and recent_average_pace <= target_pace + 0.15
+        )
+
+        if long_run_ratio >= 0.75 and pace_is_strong:
+            result["readiness"] = "strong"
+            result["readiness_reason"] = (
+                "Training volume, long-run endurance, and recent pace "
+                "are all supporting the current race goal."
+            )
     # No recent pace data
     if recent_average_pace is None:
         result["status"] = "insufficient_data"

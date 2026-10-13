@@ -27,13 +27,27 @@ def calculate_training_load(
 
     # We need at least one previous training period
     # to compare against the current period.
-    if previous_runs == 0:
+    if current_runs == 0:
         return {
             "status": "insufficient_data",
             "confidence": "low",
             "reason": (
                 "There is no recorded training "
-                "in the previous 7-day period."
+                "in the current 7-day period."
+            ),
+            "current_week_km": round(current_week, 2),
+            "previous_week_km": round(previous_week, 2),
+            "current_week_runs": current_runs,
+            "previous_week_runs": previous_runs
+        }
+
+    if previous_runs == 0:
+        return {
+            "status": "insufficient_history",
+            "confidence": "low",
+            "reason": (
+                "There is current training data, but not enough "
+                "historical training to assess the training trend."
             ),
             "current_week_km": round(current_week, 2),
             "previous_week_km": round(previous_week, 2),

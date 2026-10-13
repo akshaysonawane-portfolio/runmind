@@ -1,7 +1,5 @@
 import httpx
 
-
-
 from datetime import datetime, timezone, timedelta
 
 from app.services.auth import get_current_runner
@@ -50,15 +48,11 @@ from app.db_models.workout import WorkoutDB
 
 from app.db_models.strava_connection import StravaConnectionDB
 
-
-
 from app.services.analytics import get_running_analytics
 
 from app.services.training_load import calculate_training_load
 
 from app.services.recommendation import generate_recommendation
-
-
 
 from app.services.race_analysis import (
 
@@ -67,8 +61,6 @@ from app.services.race_analysis import (
     analyze_race_goal
 
 )
-
-
 
 from app.services.training_engine import get_training_decision
 
@@ -82,15 +74,11 @@ from app.services.feedback_analysis import analyze_run_feedback
 
 from app.services.workout_analysis import analyze_workout
 
-
-
 from app.services.adaptive_recommendation import (
 
     generate_adaptive_recommendation
 
 )
-
-
 
 from app.services.strava import (
 
@@ -114,27 +102,19 @@ from app.db_models.user import UserDB
 
 from app.services.auth import hash_password
 
-
-
 # ---------------------------------------------------------
 
 # DATABASE
 
 # ---------------------------------------------------------
 
-
-
 Base.metadata.create_all(bind=engine)
-
-
 
 # ---------------------------------------------------------
 
 # AUTHORIZATION HELPER
 
 # ---------------------------------------------------------
-
-
 
 def get_authorized_runner(
 
@@ -162,8 +142,6 @@ def get_authorized_runner(
 
     )
 
-
-
     if not runner:
 
         raise HTTPException(
@@ -174,19 +152,13 @@ def get_authorized_runner(
 
         )
 
-
-
     return runner
-
-
 
 # ---------------------------------------------------------
 
 # FASTAPI APP
 
 # ---------------------------------------------------------
-
-
 
 app = FastAPI(
 
@@ -198,17 +170,11 @@ app = FastAPI(
 
 )
 
-
-
-
-
 # ---------------------------------------------------------
 
 # CORS
 
 # ---------------------------------------------------------
-
-
 
 app.add_middleware(
 
@@ -230,17 +196,11 @@ app.add_middleware(
 
 )
 
-
-
-
-
 # =========================================================
 
 # STRAVA
 
 # =========================================================
-
-
 
 @app.get("/strava/connect")
 
@@ -252,11 +212,7 @@ def strava_connect(
 
     from app.services.auth import create_strava_state
 
-
-
     state = create_strava_state(current_user_id)
-
-
 
     authorization_url = get_strava_authorization_url(
 
@@ -264,15 +220,11 @@ def strava_connect(
 
     )
 
-
-
     return RedirectResponse(
 
         url=authorization_url
 
     )
-
-
 
 @app.get("/strava/callback")
 
@@ -290,8 +242,6 @@ def strava_callback(
 
     from app.services.auth import verify_strava_state
 
-
-
     if error:
 
         raise HTTPException(
@@ -301,8 +251,6 @@ def strava_callback(
             detail=f"Strava authorization failed: {error}"
 
         )
-
-
 
     if not code:
 
@@ -314,8 +262,6 @@ def strava_callback(
 
         )
 
-
-
     if not state:
 
         raise HTTPException(
@@ -326,27 +272,19 @@ def strava_callback(
 
         )
 
-
-
     # ---------------------------------------------
 
     # Recover the RunMind user from OAuth state
 
     # ---------------------------------------------
 
-
-
     current_user_id = verify_strava_state(state)
-
-
 
     # ---------------------------------------------
 
     # Find this user's runner profile
 
     # ---------------------------------------------
-
-
 
     runner = (
 
@@ -362,8 +300,6 @@ def strava_callback(
 
     )
 
-
-
     if not runner:
 
         raise HTTPException(
@@ -374,11 +310,7 @@ def strava_callback(
 
         )
 
-
-
     runner_id = runner.id
-
-
 
     # ---------------------------------------------
 
@@ -386,19 +318,11 @@ def strava_callback(
 
     # ---------------------------------------------
 
-
-
     try:
-
-
 
         token_data = exchange_code_for_token(code)
 
-
-
     except httpx.HTTPStatusError as exc:
-
-
 
         raise HTTPException(
 
@@ -408,19 +332,13 @@ def strava_callback(
 
         ) from exc
 
-
-
     # ---------------------------------------------
 
     # Get Strava athlete
 
     # ---------------------------------------------
 
-
-
     athlete = token_data.get("athlete", {})
-
-
 
     strava_athlete_id = str(
 
@@ -428,15 +346,11 @@ def strava_callback(
 
     )
 
-
-
     # ---------------------------------------------
 
     # Check existing connection
 
     # ---------------------------------------------
-
-
 
     existing_connection = (
 
@@ -452,8 +366,6 @@ def strava_callback(
 
     )
 
-
-
     now = datetime.now(
 
         timezone.utc
@@ -464,11 +376,7 @@ def strava_callback(
 
     )
 
-
-
     if existing_connection:
-
-
 
         existing_connection.strava_athlete_id = (
 
@@ -476,15 +384,11 @@ def strava_callback(
 
         )
 
-
-
         existing_connection.access_token = (
 
             token_data["access_token"]
 
         )
-
-
 
         existing_connection.refresh_token = (
 
@@ -492,15 +396,11 @@ def strava_callback(
 
         )
 
-
-
         existing_connection.expires_at = (
 
             token_data["expires_at"]
 
         )
-
-
 
         existing_connection.scope = (
 
@@ -508,15 +408,9 @@ def strava_callback(
 
         )
 
-
-
         existing_connection.updated_at = now
 
-
-
     else:
-
-
 
         connection = StravaConnectionDB(
 
@@ -538,15 +432,9 @@ def strava_callback(
 
         )
 
-
-
         db.add(connection)
 
-
-
     db.commit()
-
-
 
     return {
 
@@ -566,283 +454,77 @@ def strava_callback(
 
     }
 
-
-
 @app.get("/strava/activities")
-
 def strava_activities(
-
     runner_id: int,
-
-    db: Session = Depends(get_db)
-
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
-
-
-
-    connection = get_strava_connection(
-
-        db=db,
-
-        runner_id=runner_id
-
-    )
-
-
-
+    get_authorized_runner(runner_id, current_user_id, db)
+    connection = get_strava_connection(db=db, runner_id=runner_id)
     if not connection:
-
-
-
-        raise HTTPException(
-
-            status_code=401,
-
-            detail="Strava is not connected."
-
-        )
-
-
-
+        raise HTTPException(status_code=401, detail="Strava is not connected.")
     try:
-
-
-
-        access_token = get_valid_strava_access_token(
-
-            connection=connection,
-
-            db=db
-
-        )
-
-
-
+        access_token = get_valid_strava_access_token(connection=connection, db=db)
         activities = get_strava_activities(
-
-            access_token=access_token,
-
-            page=1,
-
-            per_page=30
-
+            access_token=access_token, page=1, per_page=30
         )
-
-
-
     except httpx.HTTPStatusError as exc:
-
-
-
         raise HTTPException(
-
             status_code=exc.response.status_code,
-
-            detail="Failed to fetch activities from Strava."
-
+            detail="Failed to fetch activities from Strava.",
         ) from exc
-
-
-
-    return {
-
-        "count": len(activities),
-
-        "activities": activities
-
-    }
-
-
-
-
+    return {"count": len(activities), "activities": activities}
 
 @app.post("/strava/sync")
-
 def sync_strava_activities(
-
     runner_id: int,
-
-    db: Session = Depends(get_db)
-
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
-
-
-
-    connection = get_strava_connection(
-
-        db=db,
-
-        runner_id=runner_id
-
-    )
-
-
-
+    get_authorized_runner(runner_id, current_user_id, db)
+    connection = get_strava_connection(db=db, runner_id=runner_id)
     if not connection:
-
-
-
-        raise HTTPException(
-
-            status_code=401,
-
-            detail="Strava is not connected."
-
-        )
-
-
-
+        raise HTTPException(status_code=401, detail="Strava is not connected.")
     try:
-
-
-
-        access_token = get_valid_strava_access_token(
-
-            connection=connection,
-
-            db=db
-
-        )
-
-
-
+        access_token = get_valid_strava_access_token(connection=connection, db=db)
         activities = get_strava_activities(
-
-            access_token=access_token,
-
-            page=1,
-
-            per_page=30
-
+            access_token=access_token, page=1, per_page=30
         )
-
-
-
     except httpx.HTTPStatusError as exc:
-
-
-
         raise HTTPException(
-
             status_code=exc.response.status_code,
-
-            detail="Failed to fetch activities from Strava."
-
+            detail="Failed to fetch activities from Strava.",
         ) from exc
 
-
-
     imported = 0
-
     skipped = 0
-
-
-
     for activity in activities:
-
-
-
-        strava_activity_id = str(
-
-            activity["id"]
-
-        )
-
-
-
-        existing_run = (
-
-            db.query(RunDB)
-
-            .filter(
-
-                RunDB.strava_activity_id
-
-                == strava_activity_id
-
-            )
-
-            .first()
-
-        )
-
-
-
+        strava_activity_id = str(activity["id"])
+        existing_run = db.query(RunDB).filter(
+            RunDB.strava_activity_id == strava_activity_id
+        ).first()
         if existing_run:
-
-
-
             skipped += 1
-
             continue
-
-
-
         run_data = convert_strava_activity_to_run(
-
-            activity=activity,
-
-            runner_id=runner_id
-
+            activity=activity, runner_id=runner_id
         )
-
-
-
-        # Make sure synced runs are marked as Strava
-
         run_data["source"] = "strava"
-
-
-
-        run = RunDB(
-
-            **run_data
-
-        )
-
-
-
-        db.add(run)
-
-
-
+        db.add(RunDB(**run_data))
         imported += 1
 
-
-
     db.commit()
-
-
-
     return {
-
         "runner_id": runner_id,
-
         "activities_found": len(activities),
-
         "imported": imported,
-
-        "skipped": skipped
-
+        "skipped": skipped,
     }
-
-
-
-
-
-# =========================================================
-
-# BASIC
-
-# =========================================================
-
-
 
 @app.get("/")
 
 def root():
-
-
 
     return {
 
@@ -850,15 +532,9 @@ def root():
 
     }
 
-
-
-
-
 @app.get("/health")
 
 def health():
-
-
 
     return {
 
@@ -868,105 +544,39 @@ def health():
 
 
 
-
-
-@app.get("/test-runner")
-
-def test_runner():
-
-
-
-    runner = Runner(
-
-        name="Akshay",
-
-        age=29,
-
-        weekly_mileage=40,
-
-        runs_per_week=5
-
-    )
-
-
-
-    return runner
-
-
-
-
-
-@app.get("/test-race")
-
-def test_race():
-
-
-
-    race = RaceGoal(
-
-        race_name="TMM 2027",
-
-        distance_km=21.1,
-
-        race_date="2027-01-17",
-
-        target_time_minutes=120
-
-    )
-
-
-
-    return race
-
-
-
-
-
 # =========================================================
 
 # RUNNERS
 
 # =========================================================
 
-
-
 @app.post("/runners")
-
 def create_runner(
-
     runner: Runner,
-
-    db: Session = Depends(get_db)
-
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
-
-
+    # A runner profile must always be associated with the authenticated user.
+    existing_runner = db.query(RunnerDB).filter(
+        RunnerDB.user_id == current_user_id
+    ).first()
+    if existing_runner:
+        raise HTTPException(
+            status_code=409,
+            detail="A runner profile already exists for this user.",
+        )
 
     db_runner = RunnerDB(
-
+        user_id=current_user_id,
         name=runner.name,
-
         age=runner.age,
-
         weekly_mileage=runner.weekly_mileage,
-
-        runs_per_week=runner.runs_per_week
-
+        runs_per_week=runner.runs_per_week,
     )
-
-
-
     db.add(db_runner)
-
     db.commit()
-
     db.refresh(db_runner)
-
-
-
     return db_runner
-
-
 
 @app.put("/runners/{runner_id}")
 
@@ -992,8 +602,6 @@ def update_runner(
 
     )
 
-
-
     runner.name = request.name
 
     runner.age = request.age
@@ -1002,13 +610,9 @@ def update_runner(
 
     runner.runs_per_week = request.runs_per_week
 
-
-
     db.commit()
 
     db.refresh(runner)
-
-
 
     return {
 
@@ -1028,15 +632,11 @@ def update_runner(
 
     }
 
-
-
 # =========================================================
 
 # RUN LIST
 
 # =========================================================
-
-
 
 @app.get("/runners/{runner_id}/runs")
 
@@ -1060,8 +660,6 @@ def get_runs(
 
     )
 
-
-
     runner = (
 
         db.query(RunnerDB)
@@ -1078,8 +676,6 @@ def get_runs(
 
     )
 
-
-
     if not runner:
 
         raise HTTPException(
@@ -1089,8 +685,6 @@ def get_runs(
             detail="Not authorized to access this runner"
 
         )
-
-
 
     # Keep your existing runs query here
 
@@ -1102,7 +696,7 @@ def get_runs(
 
             RunDB.runner_id == runner_id,
 
-            RunDB.source == "strava"
+            # RunDB.source == "strava"
 
         )
 
@@ -1117,8 +711,6 @@ def get_runs(
         .all()
 
     )
-
-
 
     return [
 
@@ -1146,17 +738,11 @@ def get_runs(
 
     ]
 
-
-
-
-
 # =========================================================
 
 # SINGLE RUN
 
 # =========================================================
-
-
 
 @app.get("/runners/{runner_id}/runs/{run_id}")
 
@@ -1182,10 +768,6 @@ def get_runner_run(
 
     )
 
-
-
-
-
     run = (
 
         db.query(RunDB)
@@ -1196,7 +778,7 @@ def get_runner_run(
 
             RunDB.runner_id == runner_id,
 
-            RunDB.source == "strava"
+            # RunDB.source == "strava"
 
         )
 
@@ -1204,11 +786,7 @@ def get_runner_run(
 
     )
 
-
-
     if not run:
-
-
 
         raise HTTPException(
 
@@ -1217,8 +795,6 @@ def get_runner_run(
             detail="Run not found"
 
         )
-
-
 
     return {
 
@@ -1239,8 +815,6 @@ def get_runner_run(
         "elevation_gain": run.elevation_gain,
 
     }
-
-
 
 @app.get("/runners/{runner_id}/runs/{run_id}/analysis")
 
@@ -1266,15 +840,11 @@ def get_run_analysis(
 
     )
 
-
-
     # -------------------------------------------------
 
     # Find the selected Strava run
 
     # -------------------------------------------------
-
-
 
     run = (
 
@@ -1286,15 +856,13 @@ def get_run_analysis(
 
             RunDB.runner_id == runner_id,
 
-            RunDB.source == "strava"
+            # RunDB.source == "strava"
 
         )
 
         .first()
 
     )
-
-
 
     if not run:
 
@@ -1306,15 +874,11 @@ def get_run_analysis(
 
         )
 
-
-
     # -------------------------------------------------
 
     # Running analytics
 
     # -------------------------------------------------
-
-
 
     analytics = get_running_analytics(
 
@@ -1324,15 +888,11 @@ def get_run_analysis(
 
     )
 
-
-
     # -------------------------------------------------
 
     # Training load
 
     # -------------------------------------------------
-
-
 
     training_load = calculate_training_load(
 
@@ -1342,15 +902,11 @@ def get_run_analysis(
 
     )
 
-
-
     # -------------------------------------------------
 
     # Get all runs for recovery
 
     # -------------------------------------------------
-
-
 
     runs = (
 
@@ -1372,8 +928,6 @@ def get_run_analysis(
 
     )
 
-
-
     recovery = calculate_recovery(
 
         runs=runs,
@@ -1382,15 +936,11 @@ def get_run_analysis(
 
     )
 
-
-
     # -------------------------------------------------
 
     # Race goal
 
     # -------------------------------------------------
-
-
 
     race = (
 
@@ -1412,11 +962,7 @@ def get_run_analysis(
 
     )
 
-
-
     race_goal = None
-
-
 
     if race:
 
@@ -1432,15 +978,11 @@ def get_run_analysis(
 
         }
 
-
-
     # -------------------------------------------------
 
     # Build response
 
     # -------------------------------------------------
-
-
 
     result = {
 
@@ -1464,33 +1006,19 @@ def get_run_analysis(
 
         },
 
-
-
         "training_load": training_load,
 
-
-
         "recovery": recovery,
-
-
 
         "race_goal": race_goal
 
     }
 
-
-
     print("RUN ANALYSIS RESULT:")
 
     print(result)
 
-
-
     return result
-
-
-
-
 
 @app.post("/runners/{runner_id}/runs/{run_id}/coach-analysis")
 
@@ -1516,15 +1044,11 @@ def get_run_coach_analysis(
 
     )
 
-
-
     # -------------------------------------------------
 
     # Find selected run
 
     # -------------------------------------------------
-
-
 
     run = (
 
@@ -1536,15 +1060,13 @@ def get_run_coach_analysis(
 
             RunDB.runner_id == runner_id,
 
-            RunDB.source == "strava"
+            # RunDB.source == "strava"
 
         )
 
         .first()
 
     )
-
-
 
     if not run:
 
@@ -1556,15 +1078,11 @@ def get_run_coach_analysis(
 
         )
 
-
-
     # -------------------------------------------------
 
     # Get complete training decision
 
     # -------------------------------------------------
-
-
 
     training_decision = get_training_decision(
 
@@ -1574,21 +1092,15 @@ def get_run_coach_analysis(
 
     )
 
-
-
     # -------------------------------------------------
 
     # Add selected run to AI context
 
     # -------------------------------------------------
 
-
-
     coach_context = {
 
         **training_decision,
-
-
 
         "selected_run": {
 
@@ -1612,15 +1124,11 @@ def get_run_coach_analysis(
 
     }
 
-
-
     # -------------------------------------------------
 
     # Ask AI to explain this specific run
 
     # -------------------------------------------------
-
-
 
     response = generate_coaching_response(
 
@@ -1644,8 +1152,6 @@ def get_run_coach_analysis(
 
     )
 
-
-
     return {
 
         "run_id": run.id,
@@ -1660,8 +1166,6 @@ def get_run_coach_analysis(
 
     # -------------------------------------------------
 
-
-
     analytics = get_running_analytics(
 
         runner_id=runner_id,
@@ -1670,15 +1174,11 @@ def get_run_coach_analysis(
 
     )
 
-
-
     # -------------------------------------------------
 
     # Calculate training load
 
     # -------------------------------------------------
-
-
 
     training_load = calculate_training_load(
 
@@ -1688,15 +1188,11 @@ def get_run_coach_analysis(
 
     )
 
-
-
     # -------------------------------------------------
 
     # Get recent runs for recovery
 
     # -------------------------------------------------
-
-
 
     runs = (
 
@@ -1718,8 +1214,6 @@ def get_run_coach_analysis(
 
     )
 
-
-
     recovery = calculate_recovery(
 
         runs=runs,
@@ -1728,15 +1222,11 @@ def get_run_coach_analysis(
 
     )
 
-
-
     # -------------------------------------------------
 
     # Get race goal
 
     # -------------------------------------------------
-
-
 
     race = (
 
@@ -1758,11 +1248,7 @@ def get_run_coach_analysis(
 
     )
 
-
-
     race_goal = None
-
-
 
     if race:
 
@@ -1778,15 +1264,11 @@ def get_run_coach_analysis(
 
         }
 
-
-
     # -------------------------------------------------
 
     # Return structured analysis context
 
     # -------------------------------------------------
-
-
 
     return {
 
@@ -1810,15 +1292,9 @@ def get_run_coach_analysis(
 
         },
 
-
-
         "training_load": training_load,
 
-
-
         "recovery": recovery,
-
-
 
         "race_goal": race_goal
 
@@ -1830,187 +1306,109 @@ def get_run_coach_analysis(
 
 # =========================================================
 
-
-
 @app.post("/races")
-
 def create_race(
-
     race: RaceGoal,
-
     current_user_id: int = Depends(get_current_user_id),
-
-    db: Session = Depends(get_db)
-
+    db: Session = Depends(get_db),
 ):
-
-
-
-    db_race = RaceDB(
-
+    get_authorized_runner(
         runner_id=race.runner_id,
-
-        race_name=race.race_name,
-
-        distance_km=race.distance_km,
-
-        race_date=race.race_date,
-
-        target_time_minutes=race.target_time_minutes
-
+        current_user_id=current_user_id,
+        db=db,
     )
-
-
-
+    db_race = RaceDB(
+        runner_id=race.runner_id,
+        race_name=race.race_name,
+        distance_km=race.distance_km,
+        race_date=race.race_date,
+        target_time_minutes=race.target_time_minutes,
+    )
     db.add(db_race)
-
     db.commit()
-
     db.refresh(db_race)
-
-
-
     return db_race
 
-
-
-
-
-# =========================================================
-
-# RUNS
-
-# =========================================================
-
-
-
 @app.post("/runs")
-
 def create_run(
-
     run: Run,
-
     current_user_id: int = Depends(get_current_user_id),
-
-    db: Session = Depends(get_db)
-
+    db: Session = Depends(get_db),
 ):
-
-
+    get_authorized_runner(
+        runner_id=run.runner_id,
+        current_user_id=current_user_id,
+        db=db,
+    )
+    if run.workout_id is not None:
+        workout = db.query(WorkoutDB).filter(
+            WorkoutDB.id == run.workout_id,
+            WorkoutDB.runner_id == run.runner_id,
+        ).first()
+        if not workout:
+            raise HTTPException(
+                status_code=400,
+                detail="Workout does not belong to this runner.",
+            )
 
     db_run = RunDB(
-
         runner_id=run.runner_id,
-
         workout_id=run.workout_id,
-
         date=run.date,
-
         distance_km=run.distance_km,
-
         duration_minutes=run.duration_minutes,
-
         average_pace=run.average_pace,
-
         average_heart_rate=run.average_heart_rate,
-
         average_cadence=run.average_cadence,
-
-        elevation_gain=run.elevation_gain
-
+        elevation_gain=run.elevation_gain,
     )
-
-
-
     db.add(db_run)
-
     db.commit()
-
     db.refresh(db_run)
-
-
-
     return db_run
 
-
-
-
-
 @app.post("/runs/bulk")
-
 def create_runs_bulk(
-
     runs: list[Run],
-
     current_user_id: int = Depends(get_current_user_id),
-
-    db: Session = Depends(get_db)
-
+    db: Session = Depends(get_db),
 ):
-
-
-
-    db_runs = []
-
-
-
+    # Validate every item before inserting any rows, so a mixed-owner batch
+    # cannot partially write data.
     for run in runs:
-
-
-
-        db_run = RunDB(
-
+        get_authorized_runner(
             runner_id=run.runner_id,
-
-            workout_id=run.workout_id,
-
-            date=run.date,
-
-            distance_km=run.distance_km,
-
-            duration_minutes=run.duration_minutes,
-
-            average_pace=run.average_pace,
-
-            average_heart_rate=run.average_heart_rate,
-
-            average_cadence=run.average_cadence,
-
-            elevation_gain=run.elevation_gain
-
+            current_user_id=current_user_id,
+            db=db,
         )
+        if run.workout_id is not None:
+            workout = db.query(WorkoutDB).filter(
+                WorkoutDB.id == run.workout_id,
+                WorkoutDB.runner_id == run.runner_id,
+            ).first()
+            if not workout:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Workout does not belong to this runner.",
+                )
 
-
-
-        db_runs.append(db_run)
-
-
-
+    db_runs = [
+        RunDB(
+            runner_id=run.runner_id,
+            workout_id=run.workout_id,
+            date=run.date,
+            distance_km=run.distance_km,
+            duration_minutes=run.duration_minutes,
+            average_pace=run.average_pace,
+            average_heart_rate=run.average_heart_rate,
+            average_cadence=run.average_cadence,
+            elevation_gain=run.elevation_gain,
+        )
+        for run in runs
+    ]
     db.add_all(db_runs)
-
     db.commit()
-
-
-
-    return {
-
-        "message": "Runs added successfully",
-
-        "count": len(db_runs)
-
-    }
-
-
-
-
-
-# =========================================================
-
-# ANALYTICS
-
-# =========================================================
-
-
+    return {"message": "Runs added successfully", "count": len(db_runs)}
 
 @app.get("/runners/{runner_id}/analytics")
 
@@ -2034,10 +1432,6 @@ def get_analytics(
 
     )
 
-
-
-
-
     return get_running_analytics(
 
         runner_id=runner_id,
@@ -2046,17 +1440,11 @@ def get_analytics(
 
     )
 
-
-
-
-
 # =========================================================
 
 # TRAINING LOAD
 
 # =========================================================
-
-
 
 @app.get("/runners/{runner_id}/training-load")
 
@@ -2080,10 +1468,6 @@ def get_training_load(
 
     )
 
-
-
-
-
     analytics = get_running_analytics(
 
         runner_id=runner_id,
@@ -2091,8 +1475,6 @@ def get_training_load(
         db=db
 
     )
-
-
 
     return calculate_training_load(
 
@@ -2102,17 +1484,11 @@ def get_training_load(
 
     )
 
-
-
-
-
 # =========================================================
 
 # RECOMMENDATION
 
 # =========================================================
-
-
 
 @app.get("/runners/{runner_id}/recommendation")
 
@@ -2136,8 +1512,6 @@ def get_recommendation(
 
     )
 
-
-
     runner = (
 
         db.query(RunnerDB)
@@ -2153,8 +1527,6 @@ def get_recommendation(
         .first()
 
     )
-
-
 
     if not runner:
 
@@ -2174,17 +1546,11 @@ def get_recommendation(
 
     )
 
-
-
-
-
 # =========================================================
 
 # RACE ANALYSIS
 
 # =========================================================
-
-
 
 @app.get("/runners/{runner_id}/race-analysis")
 
@@ -2208,10 +1574,6 @@ def get_race_analysis(
 
     )
 
-
-
-
-
     race = (
 
         db.query(RaceDB)
@@ -2232,11 +1594,7 @@ def get_race_analysis(
 
     )
 
-
-
     if not race:
-
-
 
         return {
 
@@ -2246,59 +1604,92 @@ def get_race_analysis(
 
         }
 
-
-
     # Race analysis should use all recorded runs, including
+
     # manually created runs. The general analytics service currently
+
     # focuses on Strava runs, but race analysis must also work before
+
     # Strava is connected.
 
     twenty_eight_days_ago = (
+
         datetime.utcnow() - timedelta(days=28)
+
     )
 
     recent_training_runs = (
+
         db.query(RunDB)
+
         .filter(
+
             RunDB.runner_id == runner_id,
+
             RunDB.date >= twenty_eight_days_ago
+
         )
+
         .order_by(
+
             RunDB.date.desc()
+
         )
+
         .all()
+
     )
 
     recent_runs = recent_training_runs[:5]
 
     recent_average_pace = calculate_recent_average_pace(
+
         recent_runs
+
     )
 
     if recent_training_runs:
+
         longest_recent_run_km = max(
+
             run.distance_km
+
             for run in recent_training_runs
+
         )
 
         distance_last_28_days = sum(
+
             run.distance_km
+
             for run in recent_training_runs
+
         )
+
     else:
+
         longest_recent_run_km = 0
+
         distance_last_28_days = 0
 
     average_weekly_mileage = (
+
         distance_last_28_days / 4
+
     )
 
     analysis = analyze_race_goal(
+
         race_distance_km=race.distance_km,
+
         target_time_minutes=race.target_time_minutes,
+
         recent_average_pace=recent_average_pace,
+
         longest_recent_run_km=longest_recent_run_km,
+
         average_weekly_mileage=average_weekly_mileage
+
     )
 
     return {
@@ -2319,17 +1710,11 @@ def get_race_analysis(
 
     }
 
-
-
-
-
 # =========================================================
 
 # COACH CONTEXT
 
 # =========================================================
-
-
 
 @app.get("/runners/{runner_id}/coach-context")
 
@@ -2353,10 +1738,6 @@ def get_coach_context_endpoint(
 
     )
 
-
-
-
-
     return get_coach_context(
 
         runner_id=runner_id,
@@ -2365,17 +1746,11 @@ def get_coach_context_endpoint(
 
     )
 
-
-
-
-
 # =========================================================
 
 # AI COACH
 
 # =========================================================
-
-
 
 @app.post("/runners/{runner_id}/ask")
 
@@ -2401,10 +1776,6 @@ def ask_coach(
 
     )
 
-
-
-
-
     training_decision = get_training_decision(
 
         runner_id=runner_id,
@@ -2413,8 +1784,6 @@ def ask_coach(
 
     )
 
-
-
     response = generate_coaching_response(
 
         coach_context=training_decision,
@@ -2422,8 +1791,6 @@ def ask_coach(
         user_question=question.question
 
     )
-
-
 
     return {
 
@@ -2435,17 +1802,11 @@ def ask_coach(
 
     }
 
-
-
-
-
 # =========================================================
 
 # RECOVERY
 
 # =========================================================
-
-
 
 @app.get("/runners/{runner_id}/recovery")
 
@@ -2469,10 +1830,6 @@ def get_recovery(
 
     )
 
-
-
-
-
     runs = (
 
         db.query(RunDB)
@@ -2493,8 +1850,6 @@ def get_recovery(
 
     )
 
-
-
     analytics = get_running_analytics(
 
         runner_id=runner_id,
@@ -2502,8 +1857,6 @@ def get_recovery(
         db=db
 
     )
-
-
 
     training_load = calculate_training_load(
 
@@ -2513,8 +1866,6 @@ def get_recovery(
 
     )
 
-
-
     recovery = calculate_recovery(
 
         runs=runs,
@@ -2523,13 +1874,7 @@ def get_recovery(
 
     )
 
-
-
     return recovery
-
-
-
-
 
 # =========================================================
 
@@ -2537,411 +1882,138 @@ def get_recovery(
 
 # =========================================================
 
-
-
 @app.post("/runs/{run_id}/feedback")
-
 def add_run_feedback(
-
     run_id: int,
-
     feedback: RunFeedback,
-
-    db: Session = Depends(get_db)
-
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
-
-
+    run = db.query(RunDB).filter(RunDB.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found.")
+    get_authorized_runner(run.runner_id, current_user_id, db)
 
     db_feedback = RunFeedbackDB(
-
         run_id=run_id,
-
         perceived_effort=feedback.perceived_effort,
-
-        felt_good=feedback.felt_good
-
+        felt_good=feedback.felt_good,
     )
-
-
-
     db.add(db_feedback)
-
     db.commit()
-
     db.refresh(db_feedback)
-
-
-
     return db_feedback
 
-
-
-
-
 @app.get("/runs/{run_id}/feedback")
-
 def get_run_feedback(
-
     run_id: int,
-
-    db: Session = Depends(get_db)
-
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
-
-
+    run = db.query(RunDB).filter(RunDB.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found.")
+    get_authorized_runner(run.runner_id, current_user_id, db)
 
     feedback = (
-
         db.query(RunFeedbackDB)
-
-        .filter(
-
-            RunFeedbackDB.run_id == run_id
-
-        )
-
-        .order_by(
-
-            RunFeedbackDB.id.desc()
-
-        )
-
+        .filter(RunFeedbackDB.run_id == run_id)
+        .order_by(RunFeedbackDB.id.desc())
         .first()
-
     )
-
-
-
     if not feedback:
-
-
-
-        return {
-
-            "status": "not_found",
-
-            "message": "No feedback found for this run."
-
-        }
-
-
-
-    analysis = analyze_run_feedback(
-
-        feedback
-
-    )
-
-
-
+        return {"status": "not_found", "message": "No feedback found for this run."}
+    analysis = analyze_run_feedback(feedback)
     return {
-
         "run_id": run_id,
-
         "feedback": {
-
             "perceived_effort": feedback.perceived_effort,
-
-            "felt_good": feedback.felt_good
-
+            "felt_good": feedback.felt_good,
         },
-
-        "analysis": analysis
-
+        "analysis": analysis,
     }
-
-
-
-
-
-# =========================================================
-
-# WORKOUTS
-
-# =========================================================
-
-
 
 @app.post("/workouts")
-
 def create_workout(
-
     workout: Workout,
-
-    db: Session = Depends(get_db)
-
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
-
-
-
-    db_workout = WorkoutDB(
-
+    get_authorized_runner(
         runner_id=workout.runner_id,
-
-        date=workout.date,
-
-        workout_type=workout.workout_type,
-
-        planned_distance_km=workout.planned_distance_km,
-
-        planned_intensity=workout.planned_intensity
-
+        current_user_id=current_user_id,
+        db=db,
     )
-
-
-
+    db_workout = WorkoutDB(
+        runner_id=workout.runner_id,
+        date=workout.date,
+        workout_type=workout.workout_type,
+        planned_distance_km=workout.planned_distance_km,
+        planned_intensity=workout.planned_intensity,
+    )
     db.add(db_workout)
-
     db.commit()
-
     db.refresh(db_workout)
-
-
-
     return db_workout
 
-
-
-
-
-# =========================================================
-
-# WORKOUT ANALYSIS
-
-# =========================================================
-
-
-
 @app.get("/workouts/{workout_id}/analysis")
-
 def get_workout_analysis(
-
     workout_id: int,
-
-    db: Session = Depends(get_db)
-
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
-
-
-
-    # --------------------------------
-
-    # Find workout
-
-    # --------------------------------
-
-
-
-    workout = (
-
-        db.query(WorkoutDB)
-
-        .filter(
-
-            WorkoutDB.id == workout_id
-
-        )
-
-        .first()
-
-    )
-
-
-
+    workout = db.query(WorkoutDB).filter(WorkoutDB.id == workout_id).first()
     if not workout:
-
-
-
-        return {
-
-            "status": "not_found",
-
-            "message": "Workout not found."
-
-        }
-
-
-
-    # --------------------------------
-
-    # Find run associated with workout
-
-    # --------------------------------
-
-
+        raise HTTPException(status_code=404, detail="Workout not found.")
+    get_authorized_runner(workout.runner_id, current_user_id, db)
 
     run = (
-
         db.query(RunDB)
-
         .filter(
-
-            RunDB.workout_id == workout_id
-
+            RunDB.workout_id == workout_id,
+            RunDB.runner_id == workout.runner_id,
         )
-
-        .order_by(
-
-            RunDB.date.desc()
-
-        )
-
+        .order_by(RunDB.date.desc())
         .first()
-
     )
-
-
-
     if not run:
-
-
-
         return {
-
             "status": "pending",
-
-            "message": (
-
-                "No run has been associated "
-
-                "with this workout yet."
-
-            )
-
+            "message": "No run has been associated with this workout yet.",
         }
-
-
-
-    # --------------------------------
-
-    # Find feedback
-
-    # --------------------------------
-
-
 
     feedback = (
-
         db.query(RunFeedbackDB)
-
-        .filter(
-
-            RunFeedbackDB.run_id == run.id
-
-        )
-
-        .order_by(
-
-            RunFeedbackDB.id.desc()
-
-        )
-
+        .filter(RunFeedbackDB.run_id == run.id)
+        .order_by(RunFeedbackDB.id.desc())
         .first()
-
     )
-
-
-
     if not feedback:
-
-
-
         return {
-
             "status": "pending_feedback",
-
-            "message": (
-
-                "Run exists but feedback has "
-
-                "not been submitted yet."
-
-            )
-
+            "message": "Run exists but feedback has not been submitted yet.",
         }
 
-
-
-    # --------------------------------
-
-    # Analyze workout
-
-    # --------------------------------
-
-
-
-    analysis = analyze_workout(
-
-        workout=workout,
-
-        run=run,
-
-        feedback=feedback
-
-    )
-
-
-
+    analysis = analyze_workout(workout=workout, run=run, feedback=feedback)
     return {
-
         "workout_id": workout.id,
-
         "run_id": run.id,
-
-
-
         "workout": {
-
             "type": workout.workout_type,
-
-            "planned_distance_km": (
-
-                workout.planned_distance_km
-
-            ),
-
-            "planned_intensity": (
-
-                workout.planned_intensity
-
-            )
-
+            "planned_distance_km": workout.planned_distance_km,
+            "planned_intensity": workout.planned_intensity,
         },
-
-
-
         "run": {
-
             "distance_km": run.distance_km,
-
             "duration_minutes": run.duration_minutes,
-
-            "average_pace": run.average_pace
-
+            "average_pace": run.average_pace,
         },
-
-
-
         "feedback": {
-
-            "perceived_effort": (
-
-                feedback.perceived_effort
-
-            ),
-
-            "felt_good": feedback.felt_good
-
+            "perceived_effort": feedback.perceived_effort,
+            "felt_good": feedback.felt_good,
         },
-
-
-
-        "analysis": analysis
-
+        "analysis": analysis,
     }
-
-
 
 @app.put("/runners/{runner_id}/race-goal")
 
@@ -2967,8 +2039,6 @@ def update_race_goal(
 
     )
 
-
-
     race = (
 
         db.query(RaceDB)
@@ -2983,8 +2053,6 @@ def update_race_goal(
 
     )
 
-
-
     if not race:
 
         race = RaceDB(
@@ -2995,8 +2063,6 @@ def update_race_goal(
 
         db.add(race)
 
-
-
     race.race_name = goal.race_name
 
     race.distance_km = goal.distance_km
@@ -3005,13 +2071,9 @@ def update_race_goal(
 
     race.target_time_minutes = goal.target_time_minutes
 
-
-
     db.commit()
 
     db.refresh(race)
-
-
 
     return {
 
@@ -3028,8 +2090,6 @@ def update_race_goal(
         "target_time_minutes": race.target_time_minutes
 
     }
-
-
 
 @app.post("/auth/register")
 
@@ -3053,8 +2113,6 @@ def register_user(
 
     )
 
-
-
     if existing_user:
 
         raise HTTPException(
@@ -3065,8 +2123,6 @@ def register_user(
 
         )
 
-
-
     # Hash password
 
     password_hash = hash_password(
@@ -3074,8 +2130,6 @@ def register_user(
         request.password
 
     )
-
-
 
     # Create user
 
@@ -3087,13 +2141,9 @@ def register_user(
 
     )
 
-
-
     db.add(new_user)
 
     db.flush()
-
-
 
     # Create runner profile linked to user
 
@@ -3111,21 +2161,13 @@ def register_user(
 
     )
 
-
-
     db.add(new_runner)
 
-
-
     db.commit()
-
-
 
     db.refresh(new_user)
 
     db.refresh(new_runner)
-
-
 
     return {
 
@@ -3161,8 +2203,6 @@ def login_user(
 
     )
 
-
-
     if not user:
 
         raise HTTPException(
@@ -3172,8 +2212,6 @@ def login_user(
             detail="Invalid email or password"
 
         )
-
-
 
     if not verify_password(
 
@@ -3191,15 +2229,11 @@ def login_user(
 
         )
 
-
-
     access_token = create_access_token(
 
         user_id=user.id
 
     )
-
-
 
     return {
 
@@ -3212,46 +2246,14 @@ def login_user(
     }
 
 @app.get("/auth/me")
-
 def get_me(
-
-    db: Session = Depends(get_db)
-
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
-
-    user = (
-
-        db.query(UserDB)
-
-        .filter(UserDB.id == current_user_id)
-
-        .first()
-
-    )
-
-
-
+    user = db.query(UserDB).filter(UserDB.id == current_user_id).first()
     if not user:
-
-        raise HTTPException(
-
-            status_code=404,
-
-            detail="User not found"
-
-        )
-
-
-
-    return {
-
-        "user_id": user.id,
-
-        "email": user.email
-
-    }
-
-
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user_id": user.id, "email": user.email}
 
 @app.get("/auth/runner")
 

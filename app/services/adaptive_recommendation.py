@@ -51,9 +51,9 @@ def generate_adaptive_recommendation(
         if days_since_last_run < 1:
 
             return {
-                "workout_type": "easy_run",
+                "workout_type": base_type,
                 "distance_km": base_distance,
-                "intensity": "easy",
+                "intensity": base_intensity,
                 "adaptation": "maintain",
                 "adaptation_reason": (
                     "Your most recent run was today. "

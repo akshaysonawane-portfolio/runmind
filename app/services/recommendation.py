@@ -192,10 +192,7 @@ def generate_recommendation(
 
         if race_distance_km and race_distance_km >= 21:
 
-            long_run_distance = max(
-                longest_run_km + 2,
-                12
-            )
+            long_run_distance = longest_run_km + 1
 
             return {
                 "workout_type": "long_run",

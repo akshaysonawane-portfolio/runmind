@@ -23,7 +23,6 @@ def get_running_analytics(
         .filter(
             RunDB.runner_id == runner_id,
             RunDB.date >= twenty_eight_days_ago,
-            RunDB.source == "strava"
         )
         .all()
     )

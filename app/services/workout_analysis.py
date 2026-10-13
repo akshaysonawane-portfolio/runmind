@@ -36,15 +36,19 @@ def analyze_workout(
     # Determine training signal
     # --------------------------------
 
+    # --------------------------------
+    # Determine training signal
+    # --------------------------------
+
     if (
         completion == "completed"
-        and feedback.perceived_effort <= 2
+        and feedback.perceived_effort <= 3
         and feedback.felt_good
     ):
         training_signal = "positive"
 
     elif (
-        feedback.perceived_effort >= 4
+        feedback.perceived_effort >= 8
         or not feedback.felt_good
     ):
         training_signal = "negative"

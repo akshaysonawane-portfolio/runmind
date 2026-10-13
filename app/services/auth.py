@@ -7,10 +7,12 @@ from jose import jwt
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 from app.database.database import get_db
-SECRET_KEY = os.getenv(
-    "JWT_SECRET_KEY",
-    "development-secret-change-this"
-)
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError(
+        "JWT_SECRET_KEY environment variable must be set."
+    )
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
 )

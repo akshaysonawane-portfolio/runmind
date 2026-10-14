@@ -2203,6 +2203,8 @@ def login_user(
 
     )
 
+    print(f"LOGIN_DIAGNOSTIC user_found={user is not None}")
+
     if not user:
 
         raise HTTPException(
@@ -2213,13 +2215,14 @@ def login_user(
 
         )
 
-    if not verify_password(
-
+    password_valid = verify_password(
         form_data.password,
-
         user.password_hash
+    )
 
-    ):
+    print(f"LOGIN_DIAGNOSTIC password_valid={password_valid}")
+
+    if not password_valid:
 
         raise HTTPException(
 

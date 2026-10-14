@@ -97,6 +97,16 @@ function App() {
 
   const [loginLoading, setLoginLoading] = useState(false);
 
+  const [showRegister, setShowRegister] = useState(false);
+
+  const [registerName, setRegisterName] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [registerAge, setRegisterAge] = useState("");
+
+  const [registerError, setRegisterError] = useState(null);
+  const [registerMessage, setRegisterMessage] = useState(null);
+  const [registerLoading, setRegisterLoading] = useState(false);
 
 
   const [coachQuestion, setCoachQuestion] = useState("");
@@ -364,6 +374,56 @@ function App() {
       setLoginLoading(false);
 
     }
+    async function register() {
+    try {
+      setRegisterLoading(true);
+      setRegisterError(null);
+      setRegisterMessage(null);
+
+      const response = await fetch(
+        `${API_BASE}/auth/register`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: registerName.trim(),
+            email: registerEmail.trim(),
+            password: registerPassword,
+            age: Number(registerAge),
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.detail || "Unable to create your account."
+        );
+      }
+
+      setRegisterMessage(
+        "Account created successfully! You can now log in."
+      );
+
+      setLoginEmail(registerEmail.trim());
+      setLoginPassword("");
+      setShowRegister(false);
+
+      setRegisterName("");
+      setRegisterEmail("");
+      setRegisterPassword("");
+      setRegisterAge("");
+    } catch (err) {
+      setRegisterError(
+        err.message || "Unable to create your account."
+      );
+    } finally {
+      setRegisterLoading(false);
+    }
+  }
 
   }
 
@@ -1351,131 +1411,141 @@ async function loadDashboard(
 
 
 
+              {showRegister ? (
         <form
-
           onSubmit={(event) => {
-
             event.preventDefault();
-
-            login();
-
+            register();
           }}
-
-
-
           style={{
-
             width: "320px",
-
             margin: "30px auto",
-
             display: "flex",
-
             flexDirection: "column",
-
             gap: "12px",
-
           }}
-
         >
-
-
+          <h2>Create your account</h2>
 
           <input
+            type="text"
+            placeholder="Full name"
+            value={registerName}
+            onChange={(event) => setRegisterName(event.target.value)}
+            autoComplete="name"
+            required
+          />
 
+          <input
             type="email"
-
             placeholder="Email"
-
-            value={loginEmail}
-
-
-
-            onChange={(event) =>
-
-              setLoginEmail(
-
-                event.target.value
-
-              )
-
-            }
-
-
-
+            value={registerEmail}
+            onChange={(event) => setRegisterEmail(event.target.value)}
             autoComplete="email"
-
             required
-
           />
-
-
 
           <input
-
             type="password"
-
-            placeholder="Password"
-
-            value={loginPassword}
-
-
-
-            onChange={(event) =>
-
-              setLoginPassword(
-
-                event.target.value
-
-              )
-
-            }
-
-
-
-            autoComplete="current-password"
-
+            placeholder="Password (minimum 8 characters)"
+            value={registerPassword}
+            onChange={(event) => setRegisterPassword(event.target.value)}
+            autoComplete="new-password"
+            minLength={8}
             required
-
           />
 
+          <input
+            type="number"
+            placeholder="Age"
+            value={registerAge}
+            onChange={(event) => setRegisterAge(event.target.value)}
+            min={13}
+            max={120}
+            required
+          />
 
-
-          {loginError && (
-
-            <p style={{
-
-              color: "red"
-
-            }}>
-
-              {loginError}
-
-            </p>
-
+          {registerError && (
+            <p style={{ color: "red" }}>{registerError}</p>
           )}
 
-
-
-          <button
-
-            type="submit"
-
-            disabled={loginLoading}
-
-          >
-
-            {loginLoading
-
-              ? "Logging in..."
-
-              : "Login"}
-
+          <button type="submit" disabled={registerLoading}>
+            {registerLoading ? "Creating account..." : "Sign Up"}
           </button>
 
-
-
+          <p>
+            Already have an account?{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setShowRegister(false);
+                setRegisterError(null);
+                setRegisterMessage(null);
+              }}
+            >
+              Login
+            </button>
+          </p>
         </form>
+      ) : (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            login();
+          }}
+          style={{
+            width: "320px",
+            margin: "30px auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+          }}
+        >
+          <input
+            type="email"
+            placeholder="Email"
+            value={loginEmail}
+            onChange={(event) => setLoginEmail(event.target.value)}
+            autoComplete="email"
+            required
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={loginPassword}
+            onChange={(event) => setLoginPassword(event.target.value)}
+            autoComplete="current-password"
+            required
+          />
+
+          {loginError && (
+            <p style={{ color: "red" }}>{loginError}</p>
+          )}
+
+          {registerMessage && (
+            <p style={{ color: "green" }}>{registerMessage}</p>
+          )}
+
+          <button type="submit" disabled={loginLoading}>
+            {loginLoading ? "Logging in..." : "Login"}
+          </button>
+
+          <p>
+            Don't have an account?{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setShowRegister(true);
+                setLoginError(null);
+                setRegisterMessage(null);
+              }}
+            >
+              Sign Up
+            </button>
+          </p>
+        </form>
+      )}
 
 
 

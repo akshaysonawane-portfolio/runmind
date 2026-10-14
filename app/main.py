@@ -501,9 +501,17 @@ def sync_strava_activities(
             access_token=access_token, page=1, per_page=30
         )
     except httpx.HTTPStatusError as exc:
+        print(
+            "STRAVA_SYNC_DIAGNOSTIC",
+            {
+                "status_code": exc.response.status_code,
+                "response_body": exc.response.text[:500],
+            },
+        )
+
         raise HTTPException(
-            status_code=exc.response.status_code,
-            detail="Failed to fetch activities from Strava.",
+            status_code=400,
+            detail="Strava request failed. Check backend logs.",
         ) from exc
 
     imported = 0

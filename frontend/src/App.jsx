@@ -374,6 +374,7 @@ function App() {
       setLoginLoading(false);
 
     }
+  }
     async function register() {
     try {
       setRegisterLoading(true);
@@ -423,7 +424,7 @@ function App() {
     } finally {
       setRegisterLoading(false);
     }
-  }
+
 
   }
 

@@ -205,28 +205,18 @@ app.add_middleware(
 # =========================================================
 
 @app.get("/strava/connect")
-
 def strava_connect(
-
     current_user_id: int = Depends(get_current_user_id)
-
 ):
-
     from app.services.auth import create_strava_state
 
     state = create_strava_state(current_user_id)
 
     authorization_url = get_strava_authorization_url(
-
         state=state
-
     )
 
-    return RedirectResponse(
-
-        url=authorization_url
-
-    )
+    return {"url": authorization_url}
 
 @app.get("/strava/callback")
 

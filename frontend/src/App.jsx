@@ -133,7 +133,19 @@ function App() {
 
   const [runError, setRunError] = useState(null);
 
+  const [showAddRun, setShowAddRun] = useState(false);
+  const [savingRun, setSavingRun] = useState(false);
+  const [manualRunError, setManualRunError] = useState(null);
+  const [manualRunMessage, setManualRunMessage] = useState(null);
 
+  const [manualRunForm, setManualRunForm] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    distance_km: "",
+    duration_minutes: "",
+    average_heart_rate: "",
+    average_cadence: "",
+    elevation_gain: "",
+  });
 
 
 
@@ -617,7 +629,37 @@ async function syncStrava() {
   }
 
 }
+async function connectStrava() {
+  try {
+    setError(null);
 
+    const response = await apiFetch(
+      `${API_BASE}/strava/connect`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Strava connection failed: ${response.status}`
+      );
+    }
+
+    const result = await response.json();
+
+    if (!result.url) {
+      throw new Error(
+        "Strava authorization URL was not returned."
+      );
+    }
+
+    window.location.href = result.url;
+  } catch (err) {
+    console.error("Strava connection error:", err);
+
+    setError(
+      "Unable to connect Strava. Please try again."
+    );
+  }
+}
   // =========================================================
 
   // RACE GOAL EDITOR
@@ -859,7 +901,94 @@ async function loadDashboard(
   }
 
 }
+async function saveManualRun(event) {
+  event.preventDefault();
 
+  setManualRunError(null);
+  setManualRunMessage(null);
+
+  if (!runnerId) {
+    setManualRunError("Runner profile is not loaded yet.");
+    return;
+  }
+
+  const distance = Number(manualRunForm.distance_km);
+  const duration = Number(manualRunForm.duration_minutes);
+
+  if (
+    !manualRunForm.date ||
+    !Number.isFinite(distance) ||
+    distance <= 0 ||
+    !Number.isFinite(duration) ||
+    duration <= 0
+  ) {
+    setManualRunError(
+      "Enter a valid date, distance, and duration."
+    );
+    return;
+  }
+
+  const runPayload = {
+    runner_id: runnerId,
+    workout_id: null,
+    date: new Date(
+      `${manualRunForm.date}T12:00:00`
+    ).toISOString(),
+    distance_km: distance,
+    duration_minutes: duration,
+    average_pace: duration / distance,
+    average_heart_rate:
+      manualRunForm.average_heart_rate === ""
+        ? null
+        : Number(manualRunForm.average_heart_rate),
+    average_cadence:
+      manualRunForm.average_cadence === ""
+        ? null
+        : Number(manualRunForm.average_cadence),
+    elevation_gain:
+      manualRunForm.elevation_gain === ""
+        ? null
+        : Number(manualRunForm.elevation_gain),
+  };
+
+  try {
+    setSavingRun(true);
+
+    const response = await apiFetch(`${API_BASE}/runs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(runPayload),
+    });
+
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(
+        result.detail || `Unable to save run (${response.status}).`
+      );
+    }
+
+    await loadDashboard(runnerId);
+
+    setManualRunForm({
+      date: new Date().toISOString().slice(0, 10),
+      distance_km: "",
+      duration_minutes: "",
+      average_heart_rate: "",
+      average_cadence: "",
+      elevation_gain: "",
+    });
+
+    setManualRunMessage("Run added successfully!");
+    setShowAddRun(false);
+  } catch (err) {
+    console.error("Manual run save error:", err);
+    setManualRunError(err.message || "Unable to save run.");
+  } finally {
+    setSavingRun(false);
+  }
+}
   async function askRunMind() {
 
   if (!coachQuestion.trim()) {
@@ -2317,7 +2446,24 @@ if (showOnboarding) {
           </p>
 
         </div>
-
+        <button
+          type="button"
+          className="sync-strava-button"
+          onClick={connectStrava}
+        >
+          Connect Strava
+        </button>
+        <button
+          type="button"
+          className="sync-strava-button"
+          onClick={() => {
+            setShowAddRun(!showAddRun);
+            setManualRunError(null);
+            setManualRunMessage(null);
+          }}
+        >
+          + Add Run
+        </button>
         <button
 
           type="button"
@@ -2331,7 +2477,6 @@ if (showOnboarding) {
           ↻ Sync Strava
 
         </button>
-
         <div className="runner">
 
 
@@ -2373,6 +2518,155 @@ if (showOnboarding) {
 
 
       </header>
+
+      {showAddRun && (
+          <div className="manual-run-card">
+            <h2>Add a Run</h2>
+            <p>Enter your run details below.</p>
+
+            <form className="manual-run-form" onSubmit={saveManualRun}>
+              <div className="form-group">
+                <label htmlFor="manual-run-date">Date</label>
+                <input
+                  id="manual-run-date"
+                  type="date"
+                  value={manualRunForm.date}
+                  onChange={(e) =>
+                    setManualRunForm({
+                      ...manualRunForm,
+                      date: e.target.value,
+                    })
+                  }
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="manual-run-distance">Distance (km)</label>
+                <input
+                  id="manual-run-distance"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={manualRunForm.distance_km}
+                  onChange={(e) =>
+                    setManualRunForm({
+                      ...manualRunForm,
+                      distance_km: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. 5"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="manual-run-duration">
+                  Duration (minutes)
+                </label>
+                <input
+                  id="manual-run-duration"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={manualRunForm.duration_minutes}
+                  onChange={(e) =>
+                    setManualRunForm({
+                      ...manualRunForm,
+                      duration_minutes: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. 30"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="manual-run-heart-rate">
+                  Average heart rate (bpm, optional)
+                </label>
+                <input
+                  id="manual-run-heart-rate"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={manualRunForm.average_heart_rate}
+                  onChange={(e) =>
+                    setManualRunForm({
+                      ...manualRunForm,
+                      average_heart_rate: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. 145"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="manual-run-cadence">
+                  Average cadence (steps/min, optional)
+                </label>
+                <input
+                  id="manual-run-cadence"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={manualRunForm.average_cadence}
+                  onChange={(e) =>
+                    setManualRunForm({
+                      ...manualRunForm,
+                      average_cadence: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. 165"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="manual-run-elevation">
+                  Elevation gain (metres, optional)
+                </label>
+                <input
+                  id="manual-run-elevation"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={manualRunForm.elevation_gain}
+                  onChange={(e) =>
+                    setManualRunForm({
+                      ...manualRunForm,
+                      elevation_gain: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. 50"
+                />
+              </div>
+
+              {manualRunError && (
+                <p role="alert" style={{ color: "red" }}>
+                  {manualRunError}
+                </p>
+              )}
+
+              {manualRunMessage && (
+                <p role="status">{manualRunMessage}</p>
+              )}
+
+              <button type="submit" disabled={savingRun}>
+                {savingRun ? "Saving..." : "Save Run"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAddRun(false)}
+                disabled={savingRun}
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        )}
+
+
 
 
 

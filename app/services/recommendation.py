@@ -3,7 +3,8 @@ def generate_recommendation(
     weekly_mileage,
     longest_run_km,
     race_distance_km,
-    training_phase=None
+    training_phase=None,
+    recovery=None
 ):
     status = training_load["status"]
 
@@ -15,44 +16,133 @@ def generate_recommendation(
     # -------------------------
     # Post-race
     # -------------------------
+    # -------------------------
+    # Recovery-aware decisions
+    # -------------------------
 
-    if phase == "post_race":
+    recovery_status = (
+        recovery.get("status", "unknown")
+        if recovery
+        else "unknown"
+    )
 
+    if recovery_status == "low":
         return {
             "workout_type": "recovery",
-            "distance_km": 3,
-            "intensity": "easy",
+            "distance_km": 0,
+            "intensity": "none",
             "reason": (
-                "You are in the post-race phase. "
-                "Prioritize recovery before returning "
-                "to normal training."
+                "Your estimated recovery is low. "
+                "Prioritize rest and reassess how you feel "
+                "before your next run."
             )
         }
+    if phase == "post_race":
+        days_since_race = (
+            training_phase.get("days_since_race", 0)
+            if training_phase
+            else 0
+        )
+
+        if days_since_race <= 2:
+            return {
+                "workout_type": "recovery",
+                "distance_km": 0,
+                "intensity": "none",
+                "reason": (
+                    "You are in the early post-race recovery period. "
+                    "Prioritize rest before returning to running."
+                )
+            }
+
+        if days_since_race <= 7:
+            return {
+                "workout_type": "recovery",
+                "distance_km": 3,
+                "intensity": "easy",
+                "reason": (
+                    "You are recovering from a recent race. "
+                    "Consider a short, easy run only if you feel "
+                    "recovered and have no pain or unusual fatigue."
+                )
+            }
+
+    # After seven days, continue to the normal training rules.
 
     # -------------------------
-    # Taper
+    # Race-aware taper
     # -------------------------
+
+    days_to_race = None
+
+    if training_phase:
+        days_to_race = training_phase.get("days_to_race")
 
     if phase == "taper":
 
+        # Race day
+        if days_to_race == 0:
+            return {
+                "workout_type": "race_day",
+                "distance_km": 0,
+                "intensity": "none",
+                "reason": (
+                    "Your race is today. Prioritize your race "
+                    "plan rather than adding a separate training run."
+                )
+            }
+
+        # One day before race
+        if days_to_race == 1:
+            return {
+                "workout_type": "rest",
+                "distance_km": 0,
+                "intensity": "none",
+                "reason": (
+                    "Your race is tomorrow. Rest and prepare "
+                    "for race day rather than adding training fatigue."
+                )
+            }
+
+        # Two or three days before race
+        if days_to_race is not None and days_to_race <= 3:
+            return {
+                "workout_type": "easy_run",
+                "distance_km": 3,
+                "intensity": "easy",
+                "reason": (
+                    "Your race is approaching. Keep this session "
+                    "short and easy to prioritize freshness."
+                )
+            }
+
+        # Four to seven days before race
+        if days_to_race is not None and days_to_race <= 7:
+            return {
+                "workout_type": "easy_run",
+                "distance_km": 4,
+                "intensity": "easy",
+                "reason": (
+                    "You are in the final week before your race. "
+                    "Reduce training volume and avoid unnecessary fatigue."
+                )
+            }
+
+        # Eight to fourteen days before race
         return {
             "workout_type": "easy_run",
             "distance_km": 5,
             "intensity": "easy",
             "reason": (
-                "You are in the taper phase. "
-                "Reduce training volume while keeping "
-                "the run easy."
+                "You are in the taper phase. Reduce training volume "
+                "while maintaining comfortable aerobic activity."
             )
         }
-
-    # current_week_km is only needed
-    # for the normal training-load rules.
+        # Current weekly mileage for normal training-load rules
     current_week_km = training_load.get(
         "current_week_km",
         weekly_mileage.get("week_1", 0)
     )
-
     # -------------------------
     # Rapid increase
     # -------------------------

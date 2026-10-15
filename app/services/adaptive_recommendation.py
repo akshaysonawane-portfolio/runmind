@@ -2,7 +2,8 @@ def generate_adaptive_recommendation(
     base_recommendation,
     workout_analysis,
     training_load,
-    recovery
+    recovery,
+    training_phase=None
 ):
     base_distance = base_recommendation["distance_km"]
     base_type = base_recommendation["workout_type"]
@@ -21,24 +22,32 @@ def generate_adaptive_recommendation(
     )
 
     # --------------------------------
-    # 1. Recovery takes priority
+    # 1. Preserve rest and race-day decisions
+    # --------------------------------
+
+    if base_type in {"rest", "race_day"}:
+        return {
+            **base_recommendation,
+            "adaptation": "maintain",
+            "adaptation_reason": (
+                "The existing plan prioritizes rest or race day. "
+                "Adaptive progression will not override that decision."
+            )
+        }
+
+    # --------------------------------
+    # 2. Low recovery: prioritize rest
     # --------------------------------
 
     if recovery_status == "low":
-
-        reduced_distance = max(
-            base_distance - 1,
-            3
-        )
-
         return {
-            "workout_type": "easy_run",
-            "distance_km": reduced_distance,
-            "intensity": "easy",
+            "workout_type": "recovery",
+            "distance_km": 0,
+            "intensity": "none",
             "adaptation": "reduce",
             "adaptation_reason": (
-                "Recovery is currently low, so the "
-                "next workout should reduce training stress."
+                "Estimated recovery is low. Prioritize rest "
+                "rather than progressing the next workout."
             )
         }
 
@@ -118,6 +127,27 @@ def generate_adaptive_recommendation(
                 "Training volume is already increasing. "
                 "Maintain the current workload before "
                 "adding more."
+            )
+        }
+    # --------------------------------
+    # Avoid progression during taper
+    # --------------------------------
+
+
+    phase = (
+        training_phase.get("phase")
+        if training_phase
+        else None
+    )
+
+    if phase in {"taper", "post_race"}:
+        return {
+            **base_recommendation,
+            "adaptation": "maintain",
+            "adaptation_reason": (
+                f"You are in the {phase.replace('_', ' ')} phase. "
+                "Maintain the planned workload instead of "
+                "progressing based on one positive workout."
             )
         }
 

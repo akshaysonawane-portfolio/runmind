@@ -123,7 +123,8 @@ def get_training_decision(
         weekly_mileage=analytics["weekly_mileage"],
         longest_run_km=analytics["longest_run_last_28_days"],
         race_distance_km=race_distance_km,
-        training_phase=training_phase
+        training_phase=training_phase,
+        recovery=recovery
     )
 
     # --------------------------------
@@ -185,7 +186,8 @@ def get_training_decision(
             base_recommendation,
             previous_workout_analysis,
             training_load,
-            recovery
+            recovery,
+            training_phase
         )
 
     else:
